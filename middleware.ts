@@ -1,7 +1,5 @@
-import { createServerClient, type CookieMethods } from '@supabase/ssr';
+import { createServerClient } from '@supabase/ssr';
 import { NextResponse, type NextRequest } from 'next/server';
-
-type CookieToSet = Parameters<CookieMethods['setAll']>[0][number];
 
 export async function middleware(request: NextRequest) {
   const { pathname } = request.nextUrl;
@@ -11,7 +9,7 @@ export async function middleware(request: NextRequest) {
     return NextResponse.next();
   }
 
-  let response = NextResponse.next({
+  const response = NextResponse.next({
     request,
   });
 
@@ -23,17 +21,22 @@ export async function middleware(request: NextRequest) {
         getAll() {
           return request.cookies.getAll();
         },
-        setAll(cookiesToSet: CookieToSet[]) {
+        setAll(
+          cookiesToSet: Array<{
+            name: string;
+            value: string;
+            options?: Record<string, unknown>;
+          }>
+        ) {
           cookiesToSet.forEach(({ name, value, options }) => {
             request.cookies.set(name, value);
-            response.cookies.set(name, value, options);
+            response.cookies.set(name, value, options as any);
           });
         },
       },
     }
   );
 
-  // Verifica sessão
   const {
     data: { user },
   } = await supabase.auth.getUser();
@@ -42,7 +45,6 @@ export async function middleware(request: NextRequest) {
     return NextResponse.redirect(new URL('/login', request.url));
   }
 
-  // Verifica se é admin ativo
   const { data: adminUser } = await supabase
     .from('admin_users')
     .select('id, role, is_active')
